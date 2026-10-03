@@ -1,5 +1,6 @@
 import asyncio
 import time
+import math
 import httpx
 from aiohttp import web
 
@@ -37,12 +38,18 @@ def calculate_percentiles(latencies):
         return {"p50": 0.0, "p95": 0.0, "p99": 0.0, "min": 0.0, "max": 0.0}
     sorted_l = sorted(latencies)
     n = len(sorted_l)
+    
+    # FIX 7: Correct mathematical percentile indexing using ceil
+    def get_p(p):
+        idx = max(0, math.ceil(n * p) - 1)
+        return sorted_l[idx]
+        
     return {
         "min": sorted_l[0],
         "max": sorted_l[-1],
-        "p50": sorted_l[int(n * 0.50)],
-        "p95": sorted_l[int(min(n - 1, n * 0.95))],
-        "p99": sorted_l[int(min(n - 1, n * 0.99))],
+        "p50": get_p(0.50),
+        "p95": get_p(0.95),
+        "p99": get_p(0.99),
     }
 
 async def fire_sync_requests():
@@ -89,7 +96,6 @@ async def fire_async_requests():
     print(f"-> All {ack_count} async requests acknowledged instantly.")
     print("-> Waiting for background workers to execute work and deliver webhooks...")
     
-    # Wait until all callbacks land or timeout expires
     wait_start = time.time()
     while len(async_callback_latencies) < ack_count and (time.time() - wait_start) < 25.0:
         await asyncio.sleep(0.5)
